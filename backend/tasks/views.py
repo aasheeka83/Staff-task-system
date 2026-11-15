@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import ProtectedError
 from django.http import FileResponse
 from rest_framework import filters, mixins, viewsets
 from rest_framework.decorators import action
@@ -18,6 +19,15 @@ class CategoryViewSet(viewsets.ModelViewSet):
     serializer_class = CategorySerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['name', 'description']
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {'detail': 'This category is used by existing tasks and cannot be deleted.'},
+                status=400,
+            )
 
 
 class TaskViewSet(
