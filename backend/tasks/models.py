@@ -1,4 +1,6 @@
 import secrets
+import os
+import uuid
 
 from django.conf import settings
 from django.db import models
@@ -56,3 +58,20 @@ class Task(models.Model):
             status=Task.Status.PENDING,
             deadline__lt=timezone.now(),
         ).update(status=Task.Status.NOT_SUBMITTED)
+        
+def submission_upload_path(instance, filename):
+        # Store files under a random name so the file URL cannot be guessed
+        ext = os.path.splitext(filename)[1].lower()
+        return f"submissions/{uuid.uuid4().hex}{ext}"
+
+
+class Submission(models.Model):
+        task = models.OneToOneField(Task, on_delete=models.PROTECT, related_name='submission')
+        staff = models.ForeignKey(Staff, on_delete=models.PROTECT, related_name='submissions')
+        comment = models.TextField()
+        document = models.FileField(upload_to=submission_upload_path)
+        original_filename = models.CharField(max_length=255, blank=True)
+        submitted_at = models.DateTimeField(auto_now_add=True)
+
+        def __str__(self):
+            return f"Submission for {self.task.title}"

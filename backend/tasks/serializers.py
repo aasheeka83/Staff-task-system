@@ -1,9 +1,12 @@
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import Category, Task
+from .models import Category, Task, Submission
 
+import os
 
+ALLOWED_EXTENSIONS = {'.pdf', '.doc', '.docx', '.xls', '.xlsx', '.png', '.jpg', '.jpeg', '.txt'}
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
@@ -34,3 +37,28 @@ class TaskSerializer(serializers.ModelSerializer):
         if self.instance is None and value <= timezone.now():
             raise serializers.ValidationError('Deadline must be in the future.')
         return value
+
+class SubmissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Submission
+        fields = ['comment', 'document', 'submitted_at']
+        read_only_fields = ['submitted_at']
+
+    def validate_comment(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError('Please add a submission comment.')
+        return value
+
+    def validate_document(self, file):
+        ext = os.path.splitext(file.name)[1].lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            allowed = ', '.join(sorted(ALLOWED_EXTENSIONS))
+            raise serializers.ValidationError(f'File type not allowed. Allowed types: {allowed}')
+        if file.size > MAX_FILE_SIZE:
+            raise serializers.ValidationError('File is too large. Maximum size is 10 MB.')
+        return file
+
+    def create(self, validated_data):
+        validated_data['original_filename'] = validated_data['document'].name
+        return super().create(validated_data)
