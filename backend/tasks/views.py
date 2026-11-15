@@ -1,5 +1,8 @@
 from django.db import transaction
+from django.http import FileResponse
 from rest_framework import filters, mixins, viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -8,6 +11,7 @@ from rest_framework.views import APIView
 from .emails import send_task_email
 from .models import Category, Task
 from .serializers import CategorySerializer, SubmissionSerializer, TaskSerializer
+
 
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
@@ -28,16 +32,53 @@ class TaskViewSet(
 
     def get_queryset(self):
         Task.update_overdue()
-        queryset = Task.objects.select_related('category', 'staff')
+        queryset = Task.objects.select_related('category', 'staff', 'submission')
 
         status = self.request.query_params.get('status')
         if status:
-            queryset = queryset.filter(status=status.upper())
+            status = status.upper()
+            if status == 'OVERDUE':
+                status = 'NOT_SUBMITTED'
+            queryset = queryset.filter(status=status)
         return queryset
 
     def perform_create(self, serializer):
         task = serializer.save()
         send_task_email(task)
+
+    @action(detail=True, methods=['get'])
+    def document(self, request, pk=None):
+        """Admin-only: view the submitted file, or add ?download=1 to download it."""
+        task = self.get_object()
+        submission = getattr(task, 'submission', None)
+        if not submission:
+            raise NotFound('No document has been submitted for this task.')
+
+        download = request.query_params.get('download') == '1'
+        return FileResponse(
+            submission.document.open('rb'),
+            as_attachment=download,
+            filename=submission.original_filename,
+        )
+
+
+class DashboardView(APIView):
+    def get(self, request):
+        Task.update_overdue()
+        tasks = Task.objects.all()
+        not_submitted = tasks.filter(status=Task.Status.NOT_SUBMITTED).count()
+
+        recent = Task.objects.select_related('category', 'staff', 'submission')[:5]
+
+        return Response({
+            'total_tasks': tasks.count(),
+            'pending_tasks': tasks.filter(status=Task.Status.PENDING).count(),
+            'completed_tasks': tasks.filter(status=Task.Status.COMPLETED).count(),
+            'not_submitted_tasks': not_submitted,
+            'overdue_tasks': not_submitted,
+            'recent_tasks': TaskSerializer(recent, many=True, context={'request': request}).data,
+        })
+
 
 class SubmitTaskView(APIView):
     """Public endpoint used by staff through the emailed link. No login needed."""

@@ -2,8 +2,6 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.permissions import AllowAny
-from django.conf import settings
-from django.conf.urls.static import static
 
 class AdminLoginView(TokenObtainPairView):
     permission_classes = [AllowAny]
@@ -20,4 +18,3 @@ urlpatterns = [
     path('api/', include('staff.urls')),
     path('api/', include('tasks.urls')),
 ]
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
