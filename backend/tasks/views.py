@@ -1,3 +1,10 @@
-from django.shortcuts import render
+from rest_framework import viewsets, filters
+from .models import Category
+from .serializers import CategorySerializer
 
-# Create your views here.
+
+class CategoryViewSet(viewsets.ModelViewSet):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name', 'description']

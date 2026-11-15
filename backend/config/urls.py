@@ -17,4 +17,5 @@ urlpatterns = [
     path('api/auth/login/', AdminLoginView.as_view()),
     path('api/auth/refresh/', AdminRefreshView.as_view()),
     path('api/', include('staff.urls')),
+    path('api/', include('tasks.urls')),
 ]
