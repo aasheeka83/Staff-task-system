@@ -145,3 +145,4 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 FRONTEND_URL = 'http://localhost:5173'
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
